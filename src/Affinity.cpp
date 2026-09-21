@@ -195,6 +195,17 @@ namespace
         return player->HasSpell(spellId);
     }
 
+    // The highest rank of the line the character knows: what the announcement links and the
+    // addon shows, so the tooltip is the one of the spell actually being cast.
+    uint32 KnownRank(Player const* player, uint32 spellId)
+    {
+        uint32 best = spellId;
+        for (uint32 id = sSpellMgr->GetFirstSpellInChain(spellId); id; id = sSpellMgr->GetNextSpellInChain(id))
+            if (player->HasSpell(id))
+                best = id;
+        return best;
+    }
+
     void Apply(Player* player, PoolEntry const& entry)
     {
         if (!player->HasAura(entry.auraId))
@@ -211,7 +222,7 @@ namespace
     void SendToAddon(Player* player, PoolEntry const* entry, bool fresh)
     {
         std::string body = entry
-            ? Acore::StringFormat("AFFINITY;{};{};{};{};{}", fresh ? "NEW" : "CUR", entry->id, entry->spellId, entry->text, CoveredNames(*entry))
+            ? Acore::StringFormat("AFFINITY;{};{};{};{};{}", fresh ? "NEW" : "CUR", entry->id, KnownRank(player, entry->spellId), entry->text, CoveredNames(*entry))
             : "AFFINITY;NONE";
 
         WorldPacket data;
@@ -222,7 +233,7 @@ namespace
     void Announce(Player* player, PoolEntry const& entry)
     {
         std::string message = Acore::StringFormat("{} has reached level {} and discovered {} affinity for {}.",
-            player->GetName(), player->GetLevel(), player->getGender() == GENDER_FEMALE ? "her" : "his", SpellLink(entry.spellId));
+            player->GetName(), player->GetLevel(), player->getGender() == GENDER_FEMALE ? "her" : "his", SpellLink(KnownRank(player, entry.spellId)));
 
         if (settings.GetConfigValue<bool>(AffinityConfig::ANNOUNCE))
         {
@@ -317,7 +328,7 @@ namespace
     class AffinityPlayer : public PlayerScript
     {
     public:
-        AffinityPlayer() : PlayerScript("AffinityPlayer", { PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_UPDATE_ZONE, PLAYERHOOK_ON_DELETE_FROM_DB, PLAYERHOOK_CAN_PLAYER_USE_PRIVATE_CHAT }) { }
+        AffinityPlayer() : PlayerScript("AffinityPlayer", { PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_LEARN_SPELL, PLAYERHOOK_ON_UPDATE_ZONE, PLAYERHOOK_ON_DELETE_FROM_DB, PLAYERHOOK_CAN_PLAYER_USE_PRIVATE_CHAT }) { }
 
         // The passive is not saved with the character's auras: put it back, or roll for a character
         // that was already past the level when the module arrived.
@@ -339,6 +350,14 @@ namespace
         void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
         {
             Discover(player);
+        }
+
+        // A new rank of the boosted skill: the addon links and scans the rank actually cast.
+        void OnPlayerLearnSpell(Player* player, uint32 spellId) override
+        {
+            PoolEntry const* entry = Current(player);
+            if (entry && sSpellMgr->GetFirstSpellInChain(spellId) == sSpellMgr->GetFirstSpellInChain(entry->spellId))
+                SendToAddon(player, entry, false);
         }
 
         // Cheap insurance against anything that strips every aura.
@@ -401,9 +420,9 @@ namespace
             return who->GetConnectedPlayer();
         }
 
-        static std::string Describe(PoolEntry const& entry)
+        static std::string Describe(Player const* player, PoolEntry const& entry)
         {
-            return Acore::StringFormat("{} - {} ({})", SpellLink(entry.spellId), entry.text, entry.id);
+            return Acore::StringFormat("{} - {} ({})", SpellLink(KnownRank(player, entry.spellId)), entry.text, entry.id);
         }
 
         static bool HandleShow(ChatHandler* handler, Optional<PlayerIdentifier> target)
@@ -414,7 +433,7 @@ namespace
 
             std::string who = player == handler->GetPlayer() ? "Your affinity" : Acore::StringFormat("{}'s affinity", player->GetName());
             if (PoolEntry const* entry = Current(player))
-                handler->PSendSysMessage("{}: {}", who, Describe(*entry));
+                handler->PSendSysMessage("{}: {}", who, Describe(player, *entry));
             else
                 handler->PSendSysMessage("{}: none yet (discovered at level {}).", who, settings.GetConfigValue<uint32>(AffinityConfig::LEVEL));
             return true;
@@ -427,7 +446,7 @@ namespace
                 return true;
 
             if (PoolEntry const* entry = Grant(player, nullptr, true))
-                handler->PSendSysMessage("{} now has the affinity {}", player->GetName(), Describe(*entry));
+                handler->PSendSysMessage("{} now has the affinity {}", player->GetName(), Describe(player, *entry));
             else
                 handler->PSendSysMessage("{} knows none of the pool's skills for class {}.", player->GetName(), player->getClass());
             return true;
@@ -447,7 +466,7 @@ namespace
             }
 
             Grant(player, entry, false);
-            handler->PSendSysMessage("{} now has the affinity {}", player->GetName(), Describe(*entry));
+            handler->PSendSysMessage("{} now has the affinity {}", player->GetName(), Describe(player, *entry));
             return true;
         }
 
