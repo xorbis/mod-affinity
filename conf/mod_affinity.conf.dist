@@ -1,0 +1,56 @@
+#
+# mod-affinity: at level 60 a character discovers its affinity, one of its class skills doubled for good.
+#
+
+[worldserver]
+
+########################################
+# Affinity
+########################################
+#
+#    Affinity.Enable
+#        Description: Roll an affinity for characters reaching Affinity.Level (and for characters
+#                     already past it at their next login). Characters that have one keep it either way.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+#
+
+Affinity.Enable = 1
+
+#
+#    Affinity.Level
+#        Description: Level at which the affinity is discovered.
+#        Default:     60
+#
+
+Affinity.Level = 60
+
+#
+#    Affinity.Announce
+#        Description: Tell every player online who discovered what, as a system message.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+#
+
+Affinity.Announce = 1
+
+#
+#    Affinity.AnnounceGuild
+#        Description: Post the same line in the character's guild chat.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+#
+
+Affinity.AnnounceGuild = 1
+
+#
+#    Affinity.RandomBots
+#        Description: Also give affinities to mod-playerbots' random bots (the rndbot accounts, and
+#                     the class bots added with ".playerbots bot addclass"). A player's own characters
+#                     driven by the bot AI always get one, like any player. Off keeps the 60+ bots
+#                     from flooding the chat with announcements every time the realm starts.
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+#
+
+Affinity.RandomBots = 0
