@@ -205,6 +205,13 @@ COL = {name: i for i, name in enumerate(COLUMNS)}
 FLOAT_COLS = {47, 77, 78, 79, 101, 102, 103, 119, 120, 121, 216, 217, 218, 229, 230, 231}
 STRING_COLS = set(range(136, 152)) | set(range(153, 169)) | set(range(170, 186)) | set(range(187, 203))
 TEMPLATE_SPELL = 14162   # Improved Eviscerate (Rank 1): the passive talent every row is modelled on
+# The table's signed integer columns; everything else integral is unsigned (family masks included).
+SIGNED_COLS = {COL[c] for c in (
+    'ID unk_320_2 unk_320_3 PowerType Reagent_1 Reagent_2 Reagent_3 Reagent_4 Reagent_5 Reagent_6 Reagent_7 Reagent_8 '
+    'ReagentCount_1 ReagentCount_2 ReagentCount_3 ReagentCount_4 ReagentCount_5 ReagentCount_6 ReagentCount_7 ReagentCount_8 '
+    'EquippedItemClass EquippedItemSubclass EquippedItemInvTypes EffectDieSides_1 EffectDieSides_2 EffectDieSides_3 '
+    'EffectBasePoints_1 EffectBasePoints_2 EffectBasePoints_3 EffectMiscValue_1 EffectMiscValue_2 EffectMiscValue_3 '
+    'EffectMiscValueB_1 EffectMiscValueB_2 EffectMiscValueB_3 RequiredAreasID PowerDisplayID').split()}
 
 
 def read_dbc(path):
@@ -307,8 +314,10 @@ def main():
                 values.append(sql_string(strings_out.get(i, '')))
             elif i in FLOAT_COLS:
                 values.append(repr(struct.unpack('<f', struct.pack('<I', v))[0]))
-            else:
+            elif i in SIGNED_COLS:
                 values.append(str(struct.unpack('<i', struct.pack('<I', v))[0]))
+            else:
+                values.append(str(v))
         rows.append('(' + ', '.join(values) + ')')
         pool_rows.append('(%d, %d, %d, %d, %s, %s, %s)' % (pool_id, class_id, aura_id, spell_id, sql_string(','.join(str(e) for e in extra)), sql_string(text), sql_string(', '.join(sorted(intended)))))
 
