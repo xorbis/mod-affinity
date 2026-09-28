@@ -54,3 +54,14 @@ Affinity.AnnounceGuild = 1
 #
 
 Affinity.RandomBots = 0
+
+#
+#    Affinity.RerollCosts
+#        Description: Prices in gold of the paid rerolls, in order, comma-separated; how many there
+#                     are is how many rerolls a character gets. A reroll offers a different affinity
+#                     and the character takes it or keeps its own; the gold is spent either way.
+#                     Empty = no rerolls.
+#        Default:     "50,100,250"
+#
+
+Affinity.RerollCosts = "50,100,250"
