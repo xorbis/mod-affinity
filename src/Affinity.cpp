@@ -267,12 +267,30 @@ namespace
     }
 
     // "AFFINITY;NEW|CUR|SWAP;<pool id>;<spell id>;<text>;<skill names>;<rerolls left>;<next reroll
-    // cost, copper>" or "AFFINITY;NONE". NEW is the discovery, SWAP a reroll taken, CUR the state.
+    // cost, copper>;<passive id>;<passive name>" or "AFFINITY;NONE". NEW is the discovery, SWAP a
+    // reroll taken, CUR the state. The passive's id and exact name make the addon's chat link: the
+    // server only lets a spell link through when its text is the spell's own name.
     void SendToAddon(Player* player, PoolEntry const* entry, char const* state)
     {
         SendAddonMessage(player, entry
-            ? Acore::StringFormat("AFFINITY;{};{};{};{};{};{};{}", state, entry->id, KnownRank(player, entry->spellId), entry->text, CoveredNames(*entry), RerollsLeft(player), NextRerollCost(player))
+            ? Acore::StringFormat("AFFINITY;{};{};{};{};{};{};{};{};{}", state, entry->id, KnownRank(player, entry->spellId), entry->text, CoveredNames(*entry), RerollsLeft(player), NextRerollCost(player),
+                entry->auraId, SpellName(entry->auraId))
             : std::string("AFFINITY;NONE"));
+    }
+
+    // "AFFINITY;INFO;<passive id>;<spell id>;<text>": what a linked affinity does, for the tooltip of
+    // a chat link to its passive (the client has no data for the passive). Nothing for an unknown id.
+    void SendInfo(Player* player, std::string_view auraId)
+    {
+        Optional<uint32> id = Acore::StringTo<uint32>(auraId);
+        if (!id)
+            return;
+        for (PoolEntry const& entry : pool)
+            if (entry.auraId == *id)
+            {
+                SendAddonMessage(player, Acore::StringFormat("AFFINITY;INFO;{};{};{}", entry.auraId, entry.spellId, entry.text));
+                return;
+            }
     }
 
     // "AFFINITY;OFFER;<pool id>;<spell id>;<text>;<skill names>": a paid reroll waiting for a choice.
@@ -547,7 +565,7 @@ namespace
 
         // The addon whispers itself "XorWoW\t<request>"; answered here and swallowed. "AFFINITY?"
         // asks for the state (login, UI reload); "AFFINITY!REROLL", "AFFINITY!TAKE" and
-        // "AFFINITY!KEEP" are the reroll buttons.
+        // "AFFINITY!KEEP" are the reroll buttons; "AFFINITY?INFO;<passive id>" looks up a chat link.
         bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver) override
         {
             if (lang != LANG_ADDON || type != CHAT_MSG_WHISPER || receiver != player)
@@ -561,6 +579,8 @@ namespace
             std::string error;
             if (request == "AFFINITY?")
                 SendState(player);
+            else if (request.rfind("AFFINITY?INFO;", 0) == 0)
+                SendInfo(player, request.substr(sizeof("AFFINITY?INFO;") - 1));
             else if (request == "AFFINITY!REROLL")
                 error = Reroll(player);
             else if (request == "AFFINITY!TAKE")
